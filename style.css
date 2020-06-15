@@ -1,0 +1,28 @@
+html,
+body {
+    background: #0b1340;
+    margin: 0;
+    padding: 0;
+}
+.navbar-nav,
+li {
+    flex: 1;
+    margin: auto !important;
+    display: flex;
+    justify-content: space-around;
+}
+
+#sketch-holder {
+    background: #0b1340;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#sketch-holder canvas {
+    display: block;
+}
+
+a {
+    cursor: pointer;
+}
