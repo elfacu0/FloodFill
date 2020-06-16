@@ -1,15 +1,20 @@
 class Square {
-    constructor(x = 10, y = 10, size = 20, type = 'empty', color = 100) {
+    constructor(x = 10, y = 10, size = 20, type = 'empty', color = 150) {
         this.x = x;
         this.y = y;
         this.size = size;
         this.color = color;
         this.type = type;
+        this.gCost = 0;
+        this.hCost = 0;
+        this.fCost = 0;
     }
     draw() {
-        // this.typeSelector();
         fill(this.color);
         rect(this.x, this.y, this.size, this.size);
+
+        fill(255);
+        text(this.fCost, this.x + this.size / 2, this.y + this.size / 2);
     }
 
     isSelected(x, y) {
@@ -32,10 +37,24 @@ class Square {
                 this.color = 10;
                 break;
             }
+            case 'path': {
+                this.color = '#00ee00';
+                break;
+            }
+            case 'finalPath': {
+                this.color = '#00ffff';
+                break;
+            }
             case 'empty': {
-                this.color = 100;
+                this.color = 150;
                 break;
             }
         }
+    }
+
+    updateCosts(gCost, hCost) {
+        this.gCost = gCost;
+        this.hCost = hCost;
+        this.fCost = gCost + hCost;
     }
 }
