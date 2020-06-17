@@ -7,14 +7,14 @@ class Square {
         this.type = type;
         this.gCost = 0;
         this.hCost = 0;
-        this.fCost = 0;
+        this.fCost = 1000;
     }
     draw() {
         fill(this.color);
         rect(this.x, this.y, this.size, this.size);
 
         fill(255);
-        text(this.fCost, this.x + this.size / 2, this.y + this.size / 2);
+        text(this.fCost, this.x, this.y + this.size / 2);
     }
 
     isSelected(x, y) {

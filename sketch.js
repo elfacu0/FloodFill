@@ -4,6 +4,7 @@ let SQUARE_SIZE;
 let squaresInRow;
 let squaresInCollum;
 const filledSpeed = 10;
+let lastChanged = {};
 function setup() {
     rectMode(CORNER);
     const canvas = createCanvas(600, 600);
@@ -33,13 +34,21 @@ function mouseDragged() {
     squares.forEach((row) => {
         row.forEach((square) => {
             if (square.isSelected(mouseX, mouseY)) {
-                square.typeSelector('wall');
+                if (lastChanged.x != square.x || lastChanged.y != square.y) {
+                    if (square.type === 'wall') {
+                        square.typeSelector('empty');
+                    } else {
+                        square.typeSelector('wall');
+                    }
+                    lastChanged = { x: square.x, y: square.y };
+                    console.log('ASD');
+                }
             }
         });
     });
 }
 
-function floodFill(pos, color) {
+function floodFill(pos = { x: 2, y: 2 }, color = '#f000f0') {
     const { x, y } = pos;
     const stack = [pos];
     const visited = [];
@@ -84,6 +93,150 @@ function getNeighbors(stack, visited, pos) {
     }
 }
 
+function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
+    squares[origin.x][origin.y].color = '#0000ff';
+    squares[end.x][end.y].color = '#0000ff';
+    squares[origin.x][origin.y].fCost = 0;
+    let current = { x: origin.x, y: origin.y };
+    let stack = [JSON.stringify(origin)];
+    let visited = [JSON.stringify(origin)];
+    let minCost = 0;
+    let neighbour = {};
+    let tmpX = 0;
+    let tmpY = 0;
+    let tmpDistance = 0;
+    let ite = 0;
+    let dijkstraInterval = setInterval(() => {
+        if (stack.length) {
+            if (++ite > 5000) return 0;
+            minCost = 10000;
+            stack = stack.filter((posString) => {
+                let pos = JSON.parse(posString);
+                if (pos.x === current.x && pos.y === current.y) {
+                    return false;
+                }
+                return true;
+            });
+            visited.push(JSON.stringify(current));
+
+            if (current.x == end.x && current.y === end.y) {
+                console.log('END');
+                squares[end.x][end.y].color = '#0000ff';
+                clearInterval(dijkstraInterval);
+                animateDijkstra(end, origin);
+            } else {
+                squares[current.x][current.y].color = '#ff0000';
+            }
+
+            for (let i = -1; i < 2; i++) {
+                for (let j = -1; j < 2; j++) {
+                    if (i === 0 && j === 0) continue;
+                    tmpX = current.x + i;
+                    tmpY = current.y + j;
+                    if (exceptions(tmpX, tmpY)) continue;
+
+                    neighbour = { x: tmpX, y: tmpY };
+                    if (!isValidCorner(current, neighbour)) continue;
+
+                    tmpDistance = dijkstraDistance(current, neighbour);
+                    if (tmpDistance < squares[tmpX][tmpY].fCost) {
+                        squares[tmpX][tmpY].fCost = tmpDistance;
+                    }
+
+                    if (
+                        !stack.includes(JSON.stringify(neighbour)) &&
+                        !visited.includes(JSON.stringify(neighbour))
+                    ) {
+                        stack.push(JSON.stringify(neighbour));
+                        squares[tmpX][tmpY].typeSelector('path');
+                    }
+                }
+            }
+
+            stack.forEach((posString) => {
+                let pos = JSON.parse(posString);
+                tmpDistance = squares[pos.x][pos.y].fCost;
+                if (tmpDistance < minCost && !visited.includes(posString)) {
+                    minCost = tmpDistance;
+                    current = pos;
+                }
+            });
+        }
+    }, 5);
+}
+
+function exceptions(tmpX, tmpY) {
+    if (tmpX < 0 || tmpX >= squaresInRow) return true;
+    if (tmpY < 0 || tmpY >= squaresInCollum) return true;
+    if (squares[tmpX][tmpY].type == 'wall') return true;
+    return false;
+}
+
+function isValidCorner(origin, end) {
+    let xDif = end.x - origin.x;
+    let yDif = end.y - origin.y;
+    let blocks = 0;
+    if (squares[origin.x + xDif][origin.y].type === 'wall') {
+        blocks++;
+    }
+    if (squares[origin.x][origin.y + yDif].type === 'wall') {
+        blocks++;
+    }
+    if (blocks === 2) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+function animateDijkstra(origin, end) {
+    let tmpX = 0;
+    let tmpY = 0;
+    let current = { x: origin.x, y: origin.y };
+    let tmpCurrent = {};
+    let neighbour = {};
+    let minDist = 0;
+    let ite = 0;
+    while (ite < 1000) {
+        ite++;
+        minDist = 10000;
+        for (let i = -1; i < 2; i++) {
+            for (let j = -1; j < 2; j++) {
+                if (i === 0 && j === 0) continue;
+                tmpX = current.x + i;
+                tmpY = current.y + j;
+                if (tmpX < 0 || tmpX >= squaresInRow) continue;
+                if (tmpY < 0 || tmpY >= squaresInCollum) continue;
+                if (squares[tmpX][tmpY].type == 'wall') continue;
+
+                neighbour = { x: tmpX, y: tmpY };
+                if (minDist > squares[tmpX][tmpY].fCost) {
+                    minDist = squares[tmpX][tmpY].fCost;
+                    tmpCurrent = neighbour;
+                }
+            }
+        }
+        squares[current.x][current.y].color = '#0000ff';
+        current = tmpCurrent;
+        if (current.x === end.x && current.y === end.y) {
+            squares[current.x][current.y].color = '#0000ff';
+            break;
+        }
+    }
+}
+
+function dijkstraDistance(origin, current) {
+    let distance = squares[origin.x][origin.y].fCost;
+    let tmpIndex =
+        Math.abs(origin.x - current.x) + Math.abs(origin.y - current.y);
+    if (tmpIndex == 2) {
+        distance += 14;
+    } else {
+        distance += 10;
+    }
+    return distance;
+}
+
 function a_star(origin = { x: 0, y: 0 }, end = { x: 2, y: 2 }) {
     squares[origin.x][origin.y].color = '#0000ff';
     squares[origin.x][origin.y].fCost = 1;
@@ -110,8 +263,8 @@ function a_star(origin = { x: 0, y: 0 }, end = { x: 2, y: 2 }) {
                 actualTmp = { x: tmpX, y: tmpY };
                 if (visited.includes(JSON.stringify(actualTmp))) continue;
 
-                let gCost = calculateCost(actualTmp, origin);
-                let hCost = calculateCost(actualTmp, end);
+                let gCost = calculateGCost(actualTmp, origin);
+                let hCost = calculateHCost(actualTmp, end);
                 squares[tmpX][tmpY].updateCosts(gCost, hCost);
 
                 if (!stack.includes(actualTmp)) {
@@ -180,7 +333,12 @@ function getMinCost(actual, visited) {
     return minPos;
 }
 
-function calculateCost(actual, end) {
+function calculateGCost(actual, end) {
+    let cost = Math.abs(actual.x - end.x) + Math.abs(actual.y - end.y);
+    return cost;
+}
+
+function calculateHCost(actual, end) {
     let cost = 0;
     let tmpX = actual.x;
     let tmpY = actual.y;
