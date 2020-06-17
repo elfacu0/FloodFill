@@ -93,6 +93,51 @@ function getNeighbors(stack, visited, pos) {
     }
 }
 
+function improvedFloodFill(pos = { x: 2, y: 2 }, color = '#f000f0') {
+    let tmpX;
+    let tmpY;
+    let neighbour = {};
+    let neighbourString = {};
+    const stack = [JSON.stringify(pos)];
+    const visited = [];
+    let current = pos;
+    squares[pos.x][pos.y].color = '#aa00dd';
+    squares[pos.x][pos.y].type = 'filled';
+    let animate = setInterval(() => {
+        if (stack.length > 0) {
+            for (let i = -1; i < 2; i++) {
+                for (let j = -1; j < 2; j++) {
+                    if (i === 0 && j === 0) continue;
+                    tmpX = current.x + i;
+                    tmpY = current.y + j;
+                    if (exceptions(tmpX, tmpY)) continue;
+
+                    neighbour = { x: tmpX, y: tmpY };
+                    neighbourString = JSON.stringify(neighbour);
+                    if (visited.includes(neighbourString)) continue;
+                    if (!isValidCorner(current, neighbour)) continue;
+
+                    if (squares[neighbour.x][neighbour.y].type == 'empty') {
+                        if (
+                            !stack.includes(neighbourString) &&
+                            !visited.includes(neighbourString)
+                        ) {
+                            stack.push(neighbourString);
+                        }
+                    }
+                }
+            }
+            current = stack.pop();
+            visited.push(current);
+            current = JSON.parse(current);
+            squares[current.x][current.y].typeSelector('filled');
+        } else {
+            clearInterval(animate);
+        }
+    }, filledSpeed);
+    console.log('END');
+}
+
 function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
     squares[origin.x][origin.y].color = '#0000ff';
     squares[end.x][end.y].color = '#0000ff';
