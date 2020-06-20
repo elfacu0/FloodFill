@@ -5,7 +5,7 @@ const squares = [];
 let SQUARE_SIZE;
 let squaresInRow;
 let squaresInCollum;
-const filledSpeed = 10;
+const filledSpeed = 1000;
 const pathSpeed = 10;
 let lastChanged = {};
 
@@ -20,6 +20,7 @@ let changingEnd = false;
 let lastEnd = { x: 0, y: 0 };
 
 let needUpdate = true;
+let running = false;
 
 function setup() {
     rectMode(CORNER);
@@ -130,10 +131,27 @@ function clearAll() {
 }
 
 function floodFill(pos = lastOrigin, color = '#f000f0') {
+    if (running) return;
+    running = true;
     clearPath();
     const { x, y } = pos;
     const stack = [pos];
     const visited = [];
+    const animatePos = [];
+    let actual;
+    floodFillRecursive(pos, animatePos);
+    console.log(animatePos);
+
+    clearPath();
+    const animate = setInterval(() => {
+        if (animatePos.length) {
+            actual = animatePos.shift();
+            squares[actual.x][actual.y].typeSelector('filled');
+        } else {
+            clearInterval(animate);
+        }
+    }, filledSpeed);
+    return '';
     squares[x][y].typeSelector('filled');
     let animateFill = setInterval(() => {
         if (stack.length > 0) {
@@ -141,17 +159,32 @@ function floodFill(pos = lastOrigin, color = '#f000f0') {
             getNeighbors(stack, visited, visiting);
             visited.push(visiting);
         } else {
+            running = false;
             clearInterval(animateFill);
         }
     }, filledSpeed);
 }
 
+function floodFillRecursive(pos, animatePos) {
+    const { x, y } = pos;
+    if (x < 0 || x >= squaresInRow) return;
+    if (y < 0 || y >= squaresInCollum) return;
+    if (squares[x][y].type === 'filled') return;
+    if (squares[x][y].type === 'wall') return;
+    squares[x][y].typeSelector('filled');
+    animatePos.push(pos);
+    floodFillRecursive({ x: x, y: y + 1 }, animatePos);
+    floodFillRecursive({ x: x, y: y - 1 }, animatePos);
+    floodFillRecursive({ x: x - 1, y: y }, animatePos);
+    floodFillRecursive({ x: x + 1, y: y }, animatePos);
+}
+
 function getNeighbors(stack, visited, pos) {
     const moves = [
         [0, 1],
-        [1, 0],
         [0, -1],
         [-1, 0],
+        [1, 0],
     ];
     for (let i = 0; i < moves.length; i++) {
         let { x, y } = pos;
@@ -165,6 +198,8 @@ function getNeighbors(stack, visited, pos) {
         if (squares[x][y].type == 'empty') {
             if (!stack.includes(actualPos) && !visited.includes(actualPos)) {
                 stack.push(actualPos);
+                getNeighbors(stack, visited, actualPos);
+                visited.push(actualPos);
                 squares[x][y].typeSelector('filled');
             }
         }
@@ -172,6 +207,8 @@ function getNeighbors(stack, visited, pos) {
 }
 
 function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
+    if (running) return;
+    running = true;
     clearPath();
     let tmpX;
     let tmpY;
@@ -210,6 +247,7 @@ function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
             current = JSON.parse(current);
             squares[current.x][current.y].typeSelector('filled');
         } else {
+            running = false;
             clearInterval(animate);
         }
     }, filledSpeed);
@@ -217,6 +255,8 @@ function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
 }
 
 function dijkstra(origin = lastOrigin, end = lastEnd) {
+    if (running) return;
+    running = true;
     clearPath();
     if (blockedIO(origin, end)) return;
     squares[origin.x][origin.y].fCost = 0;
@@ -284,6 +324,8 @@ function dijkstra(origin = lastOrigin, end = lastEnd) {
                     current = pos;
                 }
             });
+        } else {
+            running = false;
         }
     }, pathSpeed);
 }
@@ -335,6 +377,8 @@ function animateDijkstra(origin, end) {
                 if (exceptions(tmpX, tmpY)) continue;
 
                 neighbour = { x: tmpX, y: tmpY };
+                if (!isValidCorner(current, neighbour)) continue;
+
                 if (minDist > squares[tmpX][tmpY].fCost) {
                     minDist = squares[tmpX][tmpY].fCost;
                     tmpCurrent = neighbour;
@@ -347,6 +391,7 @@ function animateDijkstra(origin, end) {
             break;
         }
     }
+    running = false;
 }
 
 function dijkstraDistance(origin, current) {
@@ -362,6 +407,8 @@ function dijkstraDistance(origin, current) {
 }
 
 function a_star(origin = lastOrigin, end = lastEnd) {
+    if (running) return;
+    running = true;
     clearPath();
     if (blockedIO(origin, end)) return;
     squares[origin.x][origin.y].fCost = 0;
@@ -434,6 +481,8 @@ function a_star(origin = lastOrigin, end = lastEnd) {
                     current = pos;
                 }
             });
+        } else {
+            running = false;
         }
     }, pathSpeed);
 }
@@ -456,6 +505,7 @@ function animateAStar(origin, end) {
                 if (exceptions(tmpX, tmpY)) continue;
 
                 neighbour = { x: tmpX, y: tmpY };
+                if (!isValidCorner(current, neighbour)) continue;
                 if (
                     minDist > squares[tmpX][tmpY].gCost &&
                     squares[tmpX][tmpY].gCost != 0
@@ -471,6 +521,7 @@ function animateAStar(origin, end) {
             break;
         }
     }
+    running = false;
 }
 
 function calculateGCost(actual, end) {
