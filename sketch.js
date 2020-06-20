@@ -1,10 +1,26 @@
+// Here i call a normal array Stack, which is wrong because
+// I don't follow the LIFO order
 const BACKGROUND_COLOR = '#0d0d0d';
 const squares = [];
 let SQUARE_SIZE;
 let squaresInRow;
 let squaresInCollum;
 const filledSpeed = 10;
+const pathSpeed = 10;
 let lastChanged = {};
+
+let versor;
+let xIndex;
+let yIndex;
+
+let changingOrigin = false;
+let lastOrigin = { x: 0, y: 0 };
+
+let changingEnd = false;
+let lastEnd = { x: 0, y: 0 };
+
+let needUpdate = true;
+
 function setup() {
     rectMode(CORNER);
     const canvas = createCanvas(600, 600);
@@ -15,57 +31,119 @@ function setup() {
     }
     for (let i = 0; i < height; i += SQUARE_SIZE) {
         for (let j = 0; j < width; j += SQUARE_SIZE) {
-            squares[i / SQUARE_SIZE].push(new Square(i, j, SQUARE_SIZE));
+            squares[i / SQUARE_SIZE].push(
+                new Square(i, j, SQUARE_SIZE, '00ff11')
+            );
         }
     }
+    squares[1][1].typeSelector('origin');
+    lastOrigin = { x: 1, y: 1 };
     squaresInRow = Math.ceil(height / SQUARE_SIZE);
     squaresInCollum = Math.ceil(width / SQUARE_SIZE);
+    squares[squaresInRow - 2][squaresInCollum - 2].typeSelector('end');
+    lastEnd = { x: squaresInRow - 2, y: squaresInCollum - 2 };
+    versor = createVector(SQUARE_SIZE / 2, SQUARE_SIZE / 2);
 }
 function draw() {
-    background(BACKGROUND_COLOR);
-    squares.forEach((row) => {
-        row.forEach((square) => {
-            square.draw();
-        });
-    });
+    if (needUpdate) {
+        background(BACKGROUND_COLOR);
+        for (let row of squares) {
+            for (let square of row) {
+                square.draw();
+            }
+        }
+    }
 }
 
 function mouseDragged() {
-    squares.forEach((row) => {
-        row.forEach((square) => {
-            if (square.isSelected(mouseX, mouseY)) {
-                if (lastChanged.x != square.x || lastChanged.y != square.y) {
-                    if (square.type === 'wall') {
-                        square.typeSelector('empty');
-                    } else {
-                        square.typeSelector('wall');
-                    }
-                    lastChanged = { x: square.x, y: square.y };
-                    console.log('ASD');
-                }
+    if (mouseX < 0 || mouseX > width || mouseY < 0 || mouseY > height)
+        return '';
+    xIndex = Math.floor(mouseX / versor.x / 2);
+    yIndex = Math.floor(mouseY / versor.y / 2);
+    let square = squares[xIndex][yIndex];
+    if (square.isSelected(mouseX, mouseY)) {
+        if (lastChanged.x != square.x || lastChanged.y != square.y) {
+            if (square.type === 'origin') {
+                changingOrigin = true;
             }
-        });
-    });
+
+            if (square.type === 'end') {
+                changingEnd = true;
+            }
+
+            if (changingOrigin) {
+                squares[lastOrigin.x][lastOrigin.y].typeSelector('empty');
+                square.typeSelector('origin');
+                lastOrigin = { x: xIndex, y: yIndex };
+            }
+
+            if (changingEnd) {
+                squares[lastEnd.x][lastEnd.y].typeSelector('empty');
+                square.typeSelector('end');
+                lastEnd = { x: xIndex, y: yIndex };
+            }
+
+            if (changingOrigin === false && changingEnd === false) {
+                if (square.type === 'wall') {
+                    square.typeSelector('empty');
+                } else {
+                    square.typeSelector('wall');
+                }
+                lastChanged = { x: square.x, y: square.y };
+                needUpdate = true;
+            }
+        }
+    }
 }
 
-function floodFill(pos = { x: 2, y: 2 }, color = '#f000f0') {
+function mouseReleased() {
+    changingOrigin = false;
+    changingEnd = false;
+}
+
+function clearPath() {
+    for (let row of squares) {
+        for (let square of row) {
+            if (
+                square.type === 'path' ||
+                square.type === 'finalPath' ||
+                square.type === 'filled'
+            ) {
+                square.typeSelector('empty');
+            }
+            square.default();
+        }
+    }
+    squares[lastOrigin.x][lastOrigin.y].typeSelector('origin');
+    squares[lastEnd.x][lastEnd.y].typeSelector('end');
+}
+
+function clearAll() {
+    for (let row of squares) {
+        for (let square of row) {
+            square.typeSelector('empty');
+            square.default();
+        }
+    }
+    squares[lastOrigin.x][lastOrigin.y].typeSelector('origin');
+    squares[lastEnd.x][lastEnd.y].typeSelector('end');
+}
+
+function floodFill(pos = lastOrigin, color = '#f000f0') {
+    clearPath();
     const { x, y } = pos;
     const stack = [pos];
     const visited = [];
-    squares[x][y].color = '#aa00dd';
-    squares[x][y].type = 'filled';
-    setTimeout(() => {
-        delayedFloodFill(stack, visited);
+    squares[x][y].typeSelector('filled');
+    let animateFill = setInterval(() => {
+        if (stack.length > 0) {
+            let visiting = stack.pop();
+            getNeighbors(stack, visited, visiting);
+            visited.push(visiting);
+        } else {
+            clearInterval(animateFill);
+        }
     }, filledSpeed);
-}
-
-function delayedFloodFill(stack, visited) {
-    if (stack.length > 0) {
-        let visiting = stack.pop();
-        getNeighbors(stack, visited, visiting);
-        setTimeout(() => delayedFloodFill(stack, visited), filledSpeed);
-        visited.push(visiting);
-    }
 }
 
 function getNeighbors(stack, visited, pos) {
@@ -93,7 +171,8 @@ function getNeighbors(stack, visited, pos) {
     }
 }
 
-function improvedFloodFill(pos = { x: 2, y: 2 }, color = '#f000f0') {
+function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
+    clearPath();
     let tmpX;
     let tmpY;
     let neighbour = {};
@@ -101,8 +180,7 @@ function improvedFloodFill(pos = { x: 2, y: 2 }, color = '#f000f0') {
     const stack = [JSON.stringify(pos)];
     const visited = [];
     let current = pos;
-    squares[pos.x][pos.y].color = '#aa00dd';
-    squares[pos.x][pos.y].type = 'filled';
+    squares[pos.x][pos.y].typeSelector('filled');
     let animate = setInterval(() => {
         if (stack.length > 0) {
             for (let i = -1; i < 2; i++) {
@@ -138,9 +216,9 @@ function improvedFloodFill(pos = { x: 2, y: 2 }, color = '#f000f0') {
     console.log('END');
 }
 
-function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
-    squares[origin.x][origin.y].color = '#0000ff';
-    squares[end.x][end.y].color = '#0000ff';
+function dijkstra(origin = lastOrigin, end = lastEnd) {
+    clearPath();
+    if (blockedIO(origin, end)) return;
     squares[origin.x][origin.y].fCost = 0;
     let current = { x: origin.x, y: origin.y };
     let stack = [JSON.stringify(origin)];
@@ -151,12 +229,13 @@ function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
     let tmpY = 0;
     let tmpDistance = 0;
     let ite = 0;
+    let pos;
     let dijkstraInterval = setInterval(() => {
         if (stack.length) {
             if (++ite > 5000) return 0;
             minCost = 10000;
             stack = stack.filter((posString) => {
-                let pos = JSON.parse(posString);
+                pos = JSON.parse(posString);
                 if (pos.x === current.x && pos.y === current.y) {
                     return false;
                 }
@@ -166,11 +245,10 @@ function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
 
             if (current.x == end.x && current.y === end.y) {
                 console.log('END');
-                squares[end.x][end.y].color = '#0000ff';
-                clearInterval(dijkstraInterval);
                 animateDijkstra(end, origin);
+                clearInterval(dijkstraInterval);
             } else {
-                squares[current.x][current.y].color = '#ff0000';
+                squares[current.x][current.y].typeSelector('filled');
             }
 
             for (let i = -1; i < 2; i++) {
@@ -199,7 +277,7 @@ function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
             }
 
             stack.forEach((posString) => {
-                let pos = JSON.parse(posString);
+                pos = JSON.parse(posString);
                 tmpDistance = squares[pos.x][pos.y].fCost;
                 if (tmpDistance < minCost && !visited.includes(posString)) {
                     minCost = tmpDistance;
@@ -207,7 +285,13 @@ function dijkstra(origin = { x: 3, y: 3 }, end = { x: 10, y: 10 }) {
                 }
             });
         }
-    }, 5);
+    }, pathSpeed);
+}
+
+function blockedIO(origin, end) {
+    if (squares[origin.x][origin.y].type === 'wall') return true;
+    if (squares[end.x][end.y].type === 'wall') return true;
+    return false;
 }
 
 function exceptions(tmpX, tmpY) {
@@ -241,18 +325,14 @@ function animateDijkstra(origin, end) {
     let tmpCurrent = {};
     let neighbour = {};
     let minDist = 0;
-    let ite = 0;
-    while (ite < 1000) {
-        ite++;
+    while (current.x != end.x || current.y != end.y) {
         minDist = 10000;
         for (let i = -1; i < 2; i++) {
             for (let j = -1; j < 2; j++) {
                 if (i === 0 && j === 0) continue;
                 tmpX = current.x + i;
                 tmpY = current.y + j;
-                if (tmpX < 0 || tmpX >= squaresInRow) continue;
-                if (tmpY < 0 || tmpY >= squaresInCollum) continue;
-                if (squares[tmpX][tmpY].type == 'wall') continue;
+                if (exceptions(tmpX, tmpY)) continue;
 
                 neighbour = { x: tmpX, y: tmpY };
                 if (minDist > squares[tmpX][tmpY].fCost) {
@@ -261,10 +341,9 @@ function animateDijkstra(origin, end) {
                 }
             }
         }
-        squares[current.x][current.y].color = '#0000ff';
+        squares[current.x][current.y].typeSelector('finalPath');
         current = tmpCurrent;
         if (current.x === end.x && current.y === end.y) {
-            squares[current.x][current.y].color = '#0000ff';
             break;
         }
     }
@@ -282,112 +361,135 @@ function dijkstraDistance(origin, current) {
     return distance;
 }
 
-function a_star(origin = { x: 0, y: 0 }, end = { x: 2, y: 2 }) {
-    squares[origin.x][origin.y].color = '#0000ff';
-    squares[origin.x][origin.y].fCost = 1;
-    squares[end.x][end.y].color = '#0000ff';
-    let finished = false;
-    actual = origin;
-    let stack = [];
+function a_star(origin = lastOrigin, end = lastEnd) {
+    clearPath();
+    if (blockedIO(origin, end)) return;
+    squares[origin.x][origin.y].fCost = 0;
+    let current = { x: origin.x, y: origin.y };
+    let stack = [JSON.stringify(origin)];
     let visited = [JSON.stringify(origin)];
+    let minCost = 0;
+    let neighbour = {};
     let tmpX = 0;
     let tmpY = 0;
-    let minCost = 100;
-    let actualTmp = {};
-    while (finished === false) {
-        minCost = 1000;
+    let hCost = 0;
+    let gCost = 0;
+    let fCost = 0;
+    let ite = 0;
+    let pos;
+    let aStarInterval = setInterval(() => {
+        if (stack.length) {
+            if (++ite > 5000) return 0;
+            minCost = 10000;
+            stack = stack.filter((posString) => {
+                pos = JSON.parse(posString);
+                if (pos.x === current.x && pos.y === current.y) {
+                    return false;
+                }
+                return true;
+            });
+            visited.push(JSON.stringify(current));
+
+            if (current.x == end.x && current.y === end.y) {
+                animateAStar(end, origin);
+                console.log('END');
+                clearInterval(aStarInterval);
+            } else {
+                squares[current.x][current.y].typeSelector('filled');
+            }
+
+            for (let i = -1; i < 2; i++) {
+                for (let j = -1; j < 2; j++) {
+                    if (i === 0 && j === 0) continue;
+                    tmpX = current.x + i;
+                    tmpY = current.y + j;
+                    if (exceptions(tmpX, tmpY)) continue;
+
+                    neighbour = { x: tmpX, y: tmpY };
+                    if (!isValidCorner(current, neighbour)) continue;
+
+                    gCost = calculateGCost(current, neighbour);
+                    hCost = calculateHCost(end, neighbour);
+                    fCost = gCost + hCost;
+
+                    if (fCost < squares[tmpX][tmpY].fCost) {
+                        squares[tmpX][tmpY].updateCosts(gCost, hCost);
+                    }
+
+                    if (
+                        !stack.includes(JSON.stringify(neighbour)) &&
+                        !visited.includes(JSON.stringify(neighbour))
+                    ) {
+                        stack.push(JSON.stringify(neighbour));
+                        squares[tmpX][tmpY].typeSelector('path');
+                    }
+                }
+            }
+
+            stack.forEach((posString) => {
+                pos = JSON.parse(posString);
+                fCost = squares[pos.x][pos.y].fCost;
+                if (fCost < minCost && !visited.includes(posString)) {
+                    minCost = fCost;
+                    current = pos;
+                }
+            });
+        }
+    }, pathSpeed);
+}
+
+function animateAStar(origin, end) {
+    let tmpX = 0;
+    let tmpY = 0;
+    let current = { x: origin.x, y: origin.y };
+    let tmpCurrent = {};
+    let neighbour = {};
+    let minDist = 0;
+    squares[end.x][end.y].gCost = -1;
+    while (current.x != end.x || current.y != end.y) {
+        minDist = 10000;
         for (let i = -1; i < 2; i++) {
             for (let j = -1; j < 2; j++) {
                 if (i === 0 && j === 0) continue;
-                tmpX = actual.x + i;
-                tmpY = actual.y + j;
-                if (tmpX < 0 || tmpX >= squaresInRow) continue;
-                if (tmpY < 0 || tmpY >= squaresInCollum) continue;
-                if (squares[tmpX][tmpY].type == 'wall') continue;
+                tmpX = current.x + i;
+                tmpY = current.y + j;
+                if (exceptions(tmpX, tmpY)) continue;
 
-                actualTmp = { x: tmpX, y: tmpY };
-                if (visited.includes(JSON.stringify(actualTmp))) continue;
-
-                let gCost = calculateGCost(actualTmp, origin);
-                let hCost = calculateHCost(actualTmp, end);
-                squares[tmpX][tmpY].updateCosts(gCost, hCost);
-
-                if (!stack.includes(actualTmp)) {
-                    stack.push(actualTmp);
-                }
-                console.log(gCost, hCost);
-                if (squares[tmpX][tmpY].hCost === 0) {
-                    finished = true;
-                    break;
-                }
-
-                squares[tmpX][tmpY].typeSelector('path');
-            }
-        }
-        stack.forEach((pos) => {
-            if (squares[pos.x][pos.y].fCost < minCost) {
-                if (!visited.includes(JSON.stringify(pos))) {
-                    minCost = squares[pos.x][pos.y].fCost;
-                    actual = { x: pos.x, y: pos.y };
+                neighbour = { x: tmpX, y: tmpY };
+                if (
+                    minDist > squares[tmpX][tmpY].gCost &&
+                    squares[tmpX][tmpY].gCost != 0
+                ) {
+                    minDist = squares[tmpX][tmpY].gCost;
+                    tmpCurrent = neighbour;
                 }
             }
-        });
-        visited.push(JSON.stringify(actual));
-        squares[actual.x][actual.y].color = '#ff2222';
-        // debugger;
-    }
-    // animatePath(end);
-}
-
-function animatePath(actual) {
-    let finished = false;
-    let visited = [JSON.stringify(actual)];
-    let minPos = actual;
-    while (finished === false) {
-        minPos = getMinCost(minPos, visited);
-        if (squares[minPos.x][minPos.y].gCost === 0) {
-            finished = true;
         }
-        squares[minPos.x][minPos.y].typeSelector('finalPath');
-    }
-}
-
-function getMinCost(actual, visited) {
-    minCost = 1000;
-    let minPos = {};
-    for (let i = -1; i < 2; i++) {
-        for (let j = -1; j < 2; j++) {
-            if (i === 0 && j === 0) continue;
-            tmpX = actual.x + i;
-            tmpY = actual.y + j;
-            if (squares[tmpX][tmpY].fCost === 0) continue;
-            if (tmpX < 0 || tmpX >= squaresInRow) continue;
-            if (tmpY < 0 || tmpY >= squaresInCollum) continue;
-            if (squares[tmpX][tmpY].type == 'wall') continue;
-
-            actualTmp = { x: tmpX, y: tmpY };
-            if (visited.includes(JSON.stringify(actualTmp))) continue;
-            if (squares[tmpX][tmpY].fCost < minCost) {
-                minPos = actualTmp;
-                minCost = squares[tmpX][tmpY].fCost;
-            }
-            // debugger;
+        squares[current.x][current.y].typeSelector('finalPath');
+        current = tmpCurrent;
+        if (current.x === end.x && current.y === end.y) {
+            break;
         }
     }
-    visited.push(JSON.stringify(minPos));
-    return minPos;
 }
 
 function calculateGCost(actual, end) {
-    let cost = Math.abs(actual.x - end.x) + Math.abs(actual.y - end.y);
-    return cost;
+    let distance = squares[actual.x][actual.y].gCost;
+    let tmpIndex = Math.abs(end.x - actual.x) + Math.abs(end.y - actual.y);
+    if (tmpIndex == 2) {
+        distance += 14;
+    } else {
+        distance += 10;
+    }
+    return distance;
 }
 
 function calculateHCost(actual, end) {
     let cost = 0;
     let tmpX = actual.x;
     let tmpY = actual.y;
-    cost = Math.max(Math.abs(tmpX - end.x), Math.abs(tmpY - end.y));
+    cost = Math.sqrt((tmpX - end.x) ** 2 + (tmpY - end.y) ** 2);
+    return Math.floor(cost * 10);
     // while (tmpX != end.x || tmpY != end.y) {
     //     if (tmpX != end.x && tmpY != end.y) {
     //         cost += 1.4;
@@ -404,5 +506,4 @@ function calculateHCost(actual, end) {
     //         }
     //     }
     // }
-    return Math.ceil(cost * 10);
 }
