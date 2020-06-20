@@ -1,5 +1,12 @@
 class Square {
-    constructor(x = 10, y = 10, size = 20, type = 'empty', color = 150) {
+    constructor(
+        x = 10,
+        y = 10,
+        size = 20,
+        fillColor,
+        type = 'empty',
+        color = 150
+    ) {
         this.x = x;
         this.y = y;
         this.size = size;
@@ -8,13 +15,17 @@ class Square {
         this.gCost = 0;
         this.hCost = 0;
         this.fCost = 1000;
+        this.fillColor = fillColor;
+        this.origin = false;
+        this.end = false;
     }
     draw() {
         fill(this.color);
         rect(this.x, this.y, this.size, this.size);
 
-        fill(255);
-        text(this.fCost, this.x, this.y + this.size / 2);
+        // Cost display
+        //fill('#000000');
+        //text(`${this.fCost}`, this.x, this.y + this.size / 2);
     }
 
     isSelected(x, y) {
@@ -30,7 +41,7 @@ class Square {
         this.type = type;
         switch (this.type) {
             case 'filled': {
-                this.color = 255;
+                this.color = this.fillColor || 255;
                 break;
             }
             case 'wall': {
@@ -42,11 +53,21 @@ class Square {
                 break;
             }
             case 'finalPath': {
-                this.color = '#00ffff';
+                this.color = '#0011ff';
                 break;
             }
             case 'empty': {
                 this.color = 150;
+                break;
+            }
+            case 'origin': {
+                this.color = '#0011ff';
+                this.origin = true;
+                break;
+            }
+            case 'end': {
+                this.color = '#ff1111';
+                this.end = true;
                 break;
             }
         }
@@ -55,6 +76,12 @@ class Square {
     updateCosts(gCost, hCost) {
         this.gCost = gCost;
         this.hCost = hCost;
-        this.fCost = gCost + hCost;
+        this.fCost = this.gCost + this.hCost;
+    }
+
+    default() {
+        this.gCost = 0;
+        this.hCost = 0;
+        this.fCost = 1000;
     }
 }
