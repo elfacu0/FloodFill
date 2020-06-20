@@ -5,7 +5,7 @@ const squares = [];
 let SQUARE_SIZE;
 let squaresInRow;
 let squaresInCollum;
-const filledSpeed = 1000;
+const filledSpeed = 5;
 const pathSpeed = 10;
 let lastChanged = {};
 
@@ -130,18 +130,94 @@ function clearAll() {
     squares[lastEnd.x][lastEnd.y].typeSelector('end');
 }
 
-function floodFill(pos = lastOrigin, color = '#f000f0') {
+function floodFill(pos = lastOrigin) {
     if (running) return;
     running = true;
     clearPath();
+    const toColor = [];
+
     const { x, y } = pos;
+    if (x < 0 || x >= squaresInRow) return;
+    if (y < 0 || y >= squaresInCollum) return;
+    if (squares[x][y].type === 'filled') return;
+    if (squares[x][y].type === 'wall') return;
+
+    squares[x][y].typeSelector('filled');
     const stack = [pos];
-    const visited = [];
+    let current;
+    while (stack.length > 0) {
+        current = stack.pop();
+        fillNeighbour(current, stack, toColor);
+    }
+    clearPath();
+    let coloring;
+    let animate = setInterval(() => {
+        if (toColor.length) {
+            coloring = toColor.shift();
+            squares[coloring.x][coloring.y].typeSelector('filled');
+        } else {
+            clearInterval(animate);
+        }
+    }, filledSpeed);
+    running = false;
+}
+
+function fillNeighbour(node, stack, toColor) {
+    toColor.push({ x: node.x, y: node.y });
+    let west = node.x - 1;
+    let east = node.x + 1;
+    if (west >= 0) {
+        while (west > 0 && squares[west][node.y].type === 'empty') {
+            toColor.push({ x: west, y: node.y });
+            west--;
+        }
+        if (squares[west][node.y].type === 'wall') {
+            west++;
+        }
+        toColor.push({ x: west, y: node.y });
+    } else {
+        west = 0;
+        toColor.push({ x: west, y: node.y });
+    }
+    if (east < squaresInCollum) {
+        while (
+            east < squaresInCollum &&
+            squares[east][node.y].type === 'empty'
+        ) {
+            toColor.push({ x: east, y: node.y });
+            east++;
+        }
+        if (east >= squaresInCollum) {
+            east--;
+        }
+        if (squares[east][node.y].type === 'wall') {
+            east--;
+        }
+        toColor.push({ x: east, y: node.y });
+    } else {
+        east = squaresInCollum - 1;
+        toColor.push({ x: east, y: node.y });
+    }
+    // debugger;
+    for (let i = west; i <= east; i++) {
+        squares[i][node.y].typeSelector('filled');
+        squares[i][node.y].draw();
+        if (
+            node.y < squaresInCollum - 1 &&
+            squares[i][node.y + 1].type === 'empty'
+        ) {
+            stack.push({ x: i, y: node.y + 1 });
+        }
+        if (node.y > 0 && squares[i][node.y - 1].type === 'empty') {
+            stack.push({ x: i, y: node.y - 1 });
+        }
+    }
+}
+
+function recursiveFloodFill(pos = lastOrigin) {
     const animatePos = [];
     let actual;
-    floodFillRecursive(pos, animatePos);
-    console.log(animatePos);
-
+    recursionFlood(pos, animatePos);
     clearPath();
     const animate = setInterval(() => {
         if (animatePos.length) {
@@ -151,21 +227,9 @@ function floodFill(pos = lastOrigin, color = '#f000f0') {
             clearInterval(animate);
         }
     }, filledSpeed);
-    return '';
-    squares[x][y].typeSelector('filled');
-    let animateFill = setInterval(() => {
-        if (stack.length > 0) {
-            let visiting = stack.pop();
-            getNeighbors(stack, visited, visiting);
-            visited.push(visiting);
-        } else {
-            running = false;
-            clearInterval(animateFill);
-        }
-    }, filledSpeed);
 }
 
-function floodFillRecursive(pos, animatePos) {
+function recursionFlood(pos, animatePos) {
     const { x, y } = pos;
     if (x < 0 || x >= squaresInRow) return;
     if (y < 0 || y >= squaresInCollum) return;
@@ -173,10 +237,10 @@ function floodFillRecursive(pos, animatePos) {
     if (squares[x][y].type === 'wall') return;
     squares[x][y].typeSelector('filled');
     animatePos.push(pos);
-    floodFillRecursive({ x: x, y: y + 1 }, animatePos);
-    floodFillRecursive({ x: x, y: y - 1 }, animatePos);
-    floodFillRecursive({ x: x - 1, y: y }, animatePos);
-    floodFillRecursive({ x: x + 1, y: y }, animatePos);
+    recursionFlood({ x: x, y: y + 1 }, animatePos);
+    recursionFlood({ x: x, y: y - 1 }, animatePos);
+    recursionFlood({ x: x - 1, y: y }, animatePos);
+    recursionFlood({ x: x + 1, y: y }, animatePos);
 }
 
 function getNeighbors(stack, visited, pos) {
@@ -242,7 +306,7 @@ function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
                     }
                 }
             }
-            current = stack.pop();
+            current = stack.shift();
             visited.push(current);
             current = JSON.parse(current);
             squares[current.x][current.y].typeSelector('filled');
