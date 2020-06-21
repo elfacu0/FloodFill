@@ -156,10 +156,10 @@ function floodFill(pos = lastOrigin) {
             coloring = toColor.shift();
             squares[coloring.x][coloring.y].typeSelector('filled');
         } else {
+            running = false;
             clearInterval(animate);
         }
     }, filledSpeed);
-    running = false;
 }
 
 function fillNeighbour(node, stack, toColor) {
@@ -211,6 +211,8 @@ function fillNeighbour(node, stack, toColor) {
 }
 
 function recursiveFloodFill(pos = lastOrigin) {
+    if (running) return;
+    running = true;
     const animatePos = [];
     let actual;
     recursionFlood(pos, animatePos);
@@ -220,6 +222,7 @@ function recursiveFloodFill(pos = lastOrigin) {
             actual = animatePos.shift();
             squares[actual.x][actual.y].typeSelector('filled');
         } else {
+            running = false;
             clearInterval(animate);
         }
     }, filledSpeed);
@@ -483,6 +486,7 @@ function animateDijkstra(origin, end) {
     let tmpCurrent = {};
     let neighbour = {};
     let minDist = 0;
+    squares[end.x][end.y].typeSelector('finalPath');
     while (current.x != end.x || current.y != end.y) {
         minDist = 10000;
         for (let i = -1; i < 2; i++) {
@@ -611,6 +615,7 @@ function animateAStar(origin, end) {
     let neighbour = {};
     let minDist = 0;
     squares[end.x][end.y].gCost = -1;
+    squares[end.x][end.y].typeSelector('finalPath');
     while (current.x != end.x || current.y != end.y) {
         minDist = 10000;
         for (let i = -1; i < 2; i++) {
