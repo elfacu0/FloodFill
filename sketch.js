@@ -57,7 +57,7 @@ function draw() {
 }
 
 function mouseDragged() {
-    if (mouseX < 0 || mouseX > width || mouseY < 0 || mouseY > height)
+    if (mouseX < 0 || mouseX >= width || mouseY < 0 || mouseY >= height)
         return '';
     xIndex = Math.floor(mouseX / versor.x / 2);
     yIndex = Math.floor(mouseY / versor.y / 2);
@@ -163,7 +163,6 @@ function floodFill(pos = lastOrigin) {
 }
 
 function fillNeighbour(node, stack, toColor) {
-    toColor.push({ x: node.x, y: node.y });
     let west = node.x - 1;
     let east = node.x + 1;
     if (west >= 0) {
@@ -174,17 +173,14 @@ function fillNeighbour(node, stack, toColor) {
         if (squares[west][node.y].type === 'wall') {
             west++;
         }
-        toColor.push({ x: west, y: node.y });
     } else {
         west = 0;
-        toColor.push({ x: west, y: node.y });
     }
     if (east < squaresInCollum) {
         while (
             east < squaresInCollum &&
             squares[east][node.y].type === 'empty'
         ) {
-            toColor.push({ x: east, y: node.y });
             east++;
         }
         if (east >= squaresInCollum) {
@@ -193,13 +189,13 @@ function fillNeighbour(node, stack, toColor) {
         if (squares[east][node.y].type === 'wall') {
             east--;
         }
-        toColor.push({ x: east, y: node.y });
     } else {
         east = squaresInCollum - 1;
-        toColor.push({ x: east, y: node.y });
     }
-    // debugger;
     for (let i = west; i <= east; i++) {
+        if (squares[i][node.y].type === 'empty') {
+            toColor.push({ x: i, y: node.y });
+        }
         squares[i][node.y].typeSelector('filled');
         squares[i][node.y].draw();
         if (
@@ -284,6 +280,10 @@ function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
     squares[pos.x][pos.y].typeSelector('filled');
     let animate = setInterval(() => {
         if (stack.length > 0) {
+            squares[current.x][current.y].typeSelector('filled');
+            current = stack.shift();
+            visited.push(current);
+            current = JSON.parse(current);
             for (let i = -1; i < 2; i++) {
                 for (let j = -1; j < 2; j++) {
                     if (i === 0 && j === 0) continue;
@@ -306,16 +306,68 @@ function improvedFloodFill(pos = lastOrigin, color = '#f000f0') {
                     }
                 }
             }
-            current = stack.shift();
-            visited.push(current);
-            current = JSON.parse(current);
-            squares[current.x][current.y].typeSelector('filled');
         } else {
+            squares[current.x][current.y].typeSelector('filled');
             running = false;
             clearInterval(animate);
         }
     }, filledSpeed);
     console.log('END');
+}
+
+function floodFill4(pos = lastOrigin) {
+    if (running) return;
+    running = true;
+    clearPath();
+    let tmpX;
+    let tmpY;
+    let neighbour = {};
+    let neighbourString = {};
+    const stack = [JSON.stringify(pos)];
+    const visited = [];
+    let current = pos;
+    squares[pos.x][pos.y].typeSelector('filled');
+    const moves = [
+        [0, -1],
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+    ];
+    let i, j;
+    let animate = setInterval(() => {
+        if (stack.length > 0) {
+            squares[current.x][current.y].typeSelector('filled');
+            current = stack.shift();
+            visited.push(current);
+            current = JSON.parse(current);
+            for (let k = 0; k < moves.length; k++) {
+                i = moves[k][0];
+                j = moves[k][1];
+                tmpX = current.x + i;
+                tmpY = current.y + j;
+                if (exceptions(tmpX, tmpY)) continue;
+
+                neighbour = { x: tmpX, y: tmpY };
+                neighbourString = JSON.stringify(neighbour);
+                if (visited.includes(neighbourString)) continue;
+                if (!isValidCorner(current, neighbour)) continue;
+
+                if (squares[neighbour.x][neighbour.y].type === 'empty') {
+                    if (
+                        !stack.includes(neighbourString) &&
+                        !visited.includes(neighbourString)
+                    ) {
+                        stack.push(neighbourString);
+                    }
+                }
+            }
+        } else {
+            squares[current.x][current.y].typeSelector('filled');
+            running = false;
+            clearInterval(animate);
+            console.log('END');
+        }
+    }, filledSpeed);
 }
 
 function dijkstra(origin = lastOrigin, end = lastEnd) {
